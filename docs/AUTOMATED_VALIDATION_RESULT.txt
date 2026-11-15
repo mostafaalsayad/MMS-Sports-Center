@@ -1,0 +1,3 @@
+Checked 27 HTML files and 15 JavaScript files.
+PASS: no broken local references, duplicate IDs, missing image alt attributes, unlabelled controls, or JavaScript syntax errors were detected.
+Extended validation passed: all 27 HTML pages include manifest, icon and theme metadata; service-worker core files exist; manifest and Firebase JSON files parse successfully; dark-theme coverage markers are present.

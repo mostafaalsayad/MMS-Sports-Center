@@ -1,0 +1,175 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function owns(fieldName) {
+      return signedIn()
+        && resource.data[fieldName] == request.auth.uid;
+    }
+
+    function createsOwn(fieldName) {
+      return signedIn()
+        && request.resource.data[fieldName] == request.auth.uid;
+    }
+
+    function unchanged(fieldName) {
+      return request.resource.data[fieldName] == resource.data[fieldName];
+    }
+
+
+    // ============================================================
+    // USERS
+    // ============================================================
+
+    match /users/{userId} {
+
+      // A new account can create ONLY its own member profile.
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && request.resource.data.role == 'member'
+        && request.resource.data.email == request.auth.token.email;
+
+      // A member can read their own profile.
+      // An administrator can read all profiles.
+      allow read: if signedIn()
+        && (
+          request.auth.uid == userId
+          || isAdmin()
+        );
+
+      // Members can update their own permitted profile fields.
+      // Admins can update member profiles.
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && request.auth.uid == userId
+          && unchanged('uid')
+          && unchanged('email')
+          && unchanged('role')
+          && unchanged('membershipStatus')
+        );
+
+      allow delete: if isAdmin();
+    }
+
+
+    // ============================================================
+    // MEMBERSHIP PLANS
+    // ============================================================
+
+    match /membershipPlans/{planId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+
+    // ============================================================
+    // FACILITIES
+    // ============================================================
+
+    match /facilities/{facilityId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+
+    // ============================================================
+    // SESSIONS
+    // ============================================================
+
+    match /sessions/{sessionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+
+    // ============================================================
+    // PRODUCTS
+    // ============================================================
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+
+    // ============================================================
+    // BOOKINGS
+    // ============================================================
+
+    match /bookings/{bookingId} {
+
+      allow create: if createsOwn('userId')
+        && request.resource.data.status == 'confirmed';
+
+      allow read: if isAdmin()
+        || owns('userId');
+
+      allow update: if isAdmin()
+        || (
+          owns('userId')
+          && unchanged('userId')
+          && unchanged('sessionId')
+          && request.resource.data.status == 'cancelled'
+        );
+
+      allow delete: if isAdmin();
+    }
+
+
+    // ============================================================
+    // FREEZE REQUESTS
+    // ============================================================
+
+    match /freezeRequests/{requestId} {
+
+      allow create: if createsOwn('userId')
+        && request.resource.data.status == 'pending';
+
+      allow read: if isAdmin()
+        || owns('userId');
+
+      allow update: if isAdmin()
+        || (
+          owns('userId')
+          && unchanged('userId')
+          && resource.data.status == 'pending'
+          && request.resource.data.status == 'cancelled'
+        );
+
+      allow delete: if isAdmin();
+    }
+
+
+    // ============================================================
+    // ORDERS
+    // ============================================================
+
+    match /orders/{orderId} {
+
+      allow create: if createsOwn('userId')
+        && request.resource.data.status == 'pending'
+        && request.resource.data.total is number
+        && request.resource.data.total >= 0;
+
+      allow read: if isAdmin()
+        || owns('userId');
+
+      allow update: if isAdmin();
+
+      allow delete: if isAdmin();
+    }
+  }
+}

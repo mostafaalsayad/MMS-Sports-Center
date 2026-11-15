@@ -1,0 +1,9 @@
+{
+  "name": "mms-sports-center",
+  "version": "12.0.0",
+  "private": true,
+  "description": "MMS Sports Center academic web application",
+  "dependencies": {
+    "firebase": "^12.17.0"
+  }
+}
